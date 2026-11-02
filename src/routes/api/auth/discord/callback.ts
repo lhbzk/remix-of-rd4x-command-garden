@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { env } from "cloudflare:workers";
 import {
   consumeOAuthState,
   createDiscordSession,
@@ -53,9 +54,9 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
           }
 
           const RD4X_API_URL = env.RD4X_API_URL;
-          const DASHBOARD_API_KEY = env.DASHBOARD_API_KEY;
-          const DISCORD_OAUTH_REDIRECT_URI =
-            env.DISCORD_OAUTH_REDIRECT_URI;
+const DASHBOARD_API_KEY = env.DASHBOARD_API_KEY;
+const DISCORD_OAUTH_REDIRECT_URI =
+  env.DISCORD_OAUTH_REDIRECT_URI;
 
           if (
             !RD4X_API_URL ||
