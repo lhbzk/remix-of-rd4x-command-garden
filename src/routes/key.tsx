@@ -1,6 +1,9 @@
-// RD4X 
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   AlertCircle,
   ArrowRight,
@@ -9,6 +12,7 @@ import {
   KeyRound,
   Loader2,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/dashboard/AuthShell";
 import { LogoMark } from "@/components/dashboard/Logo";
@@ -40,15 +44,17 @@ type KeyRecord = {
 type KeyState =
   | { s: "idle" }
   | { s: "loading" }
-  | { s: "invalid" }
+  | { s: "invalid"; reason?: string }
   | { s: "expired"; at: string }
   | { s: "success"; key: KeyRecord };
 
 function KeyPage() {
   const navigate = useNavigate();
 
-  const [value, setValue] = useState("RD4X-");
-  const [state, setState] = useState<KeyState>({ s: "idle" });
+  const [value, setValue] = useState("");
+  const [state, setState] = useState<KeyState>({
+    s: "idle",
+  });
   const [shakeId, setShakeId] = useState(0);
 
   const [admin, setAdmin] = useState<{
@@ -66,34 +72,50 @@ function KeyPage() {
 
     const loadDiscordSession = async () => {
       try {
-        const response = await fetch("/api/auth/discord/me", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
+        const response = await fetch(
+          "/api/auth/discord/me",
+          {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+            },
           },
-        });
+        );
 
         if (!response.ok) {
-          if (!cancelled && response.status === 401) {
-            navigate({ to: "/login" });
+          if (
+            !cancelled &&
+            response.status === 401
+          ) {
+            navigate({
+              to: "/login",
+            });
           }
+
           return;
         }
 
         const data = await response.json();
 
-        if (!cancelled && data?.ok && data?.data) {
+        if (
+          !cancelled &&
+          data?.ok &&
+          data?.data
+        ) {
           setAdmin({
             username:
               data.data.username ??
               data.data.globalName ??
               "admin",
+
             displayName:
               data.data.globalName ??
               data.data.username ??
               "Admin",
-            avatar: data.data.avatar ?? null,
+
+            avatar:
+              data.data.avatar ?? null,
           });
         }
       } catch {
@@ -110,29 +132,44 @@ function KeyPage() {
     };
   }, [navigate]);
 
-  const submit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const submit = async (
+    event?: React.FormEvent,
+  ) => {
+    event?.preventDefault();
 
-    if (!complete || state.s === "loading") {
+    if (
+      !complete ||
+      state.s === "loading"
+    ) {
       return;
     }
 
-    setState({ s: "loading" });
+    setState({
+      s: "loading",
+    });
 
     try {
-      const response = await fetch("/api/auth/key/validate", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      const response = await fetch(
+        "/api/auth/key/validate",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Accept:
+              "application/json",
+          },
+          body: JSON.stringify({
+            key: value,
+          }),
         },
-        body: JSON.stringify({
-          key: value,
-        }),
-      });
+      );
 
-      const result = await response.json().catch(() => null);
+      const result =
+        await response
+          .json()
+          .catch(() => null);
 
       if (response.status === 401) {
         notify.error(
@@ -147,73 +184,117 @@ function KeyPage() {
         return;
       }
 
-      if (!response.ok || !result?.ok) {
-        const errorText = String(
-          result?.error ?? "",
-        ).toLowerCase();
+      if (
+        !response.ok ||
+        !result?.ok
+      ) {
+        const errorText =
+          String(
+            result?.error ?? "",
+          ).toLowerCase();
 
-        const expired =
-          result?.status === "expired" ||
-          errorText.includes("expir") ||
-          errorText.includes("expired");
+        const status =
+          String(
+            result?.status ?? "",
+          ).toLowerCase();
 
-        if (expired) {
+        const reason =
+          String(
+            result?.data?.reason ??
+              result?.reason ??
+              "",
+          ).toLowerCase();
+
+        const combined =
+          `${errorText} ${status} ${reason}`;
+
+        if (
+          combined.includes("expir") ||
+          combined.includes("expired") ||
+          reason ===
+            "key_nao_resgatada" ||
+          reason ===
+            "sessao_expirada"
+        ) {
           setState({
             s: "expired",
             at:
-              result?.data?.expiredAt ??
+              result?.data
+                ?.expiredAt ??
               new Date().toISOString(),
           });
         } else {
-          setState({ s: "invalid" });
+          setState({
+            s: "invalid",
+            reason:
+              result?.error ??
+              result?.data
+                ?.reason,
+          });
         }
 
-        setShakeId((x) => x + 1);
+        setShakeId(
+          (current) =>
+            current + 1,
+        );
+
         return;
       }
 
-      const keyResult = result?.data;
+      const botResult =
+        result?.data;
 
-      if (keyResult?.valid !== true) {
-        const reason = String(
-          keyResult?.reason ?? "",
-        ).toLowerCase();
+      if (
+        botResult?.valid !== true
+      ) {
+        const reason =
+          String(
+            botResult?.reason ?? "",
+          ).toLowerCase();
 
-        const expired =
+        if (
           reason.includes("expir") ||
-          keyResult?.status === "expired";
-
-        if (expired) {
+          reason ===
+            "sessao_expirada" ||
+          reason ===
+            "key_nao_resgatada"
+        ) {
           setState({
             s: "expired",
             at:
-              keyResult?.expiredAt ??
               new Date().toISOString(),
           });
         } else {
-          setState({ s: "invalid" });
+          setState({
+            s: "invalid",
+            reason,
+          });
         }
 
-        setShakeId((x) => x + 1);
+        setShakeId(
+          (current) =>
+            current + 1,
+        );
+
         return;
       }
 
-      const data = keyResult?.data ?? {};
+      const botKeyData =
+        botResult?.data ?? {};
 
       const keyRecord: KeyRecord = {
         key: value,
+
         plan:
-          data.plan ??
-          data.type ??
+          botKeyData.plan ??
+          botKeyData.type ??
           "RD4X",
+
         expiresAt:
-          data.expiresAt ??
-          data.expiration ??
-          (
-            data.sessionExpiresAt
-              ? data.sessionExpiresAt
-              : "perm"
-          ),
+          botKeyData
+            .sessionExpiresAt ??
+          botKeyData.expiresAt ??
+          "perm",
       };
 
       setState({
@@ -226,13 +307,15 @@ function KeyPage() {
         "Redirecting to your dashboard…",
       );
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         navigate({
           to: "/overview",
         });
-      }, 1600);
+      }, 1200);
     } catch {
-      setState({ s: "idle" });
+      setState({
+        s: "idle",
+      });
 
       notify.error(
         "Couldn't reach the key server",
@@ -249,7 +332,8 @@ function KeyPage() {
     admin?.username ?? "admin";
 
   const displayName =
-    admin?.displayName ?? "RD4X Admin";
+    admin?.displayName ??
+    "RD4X Admin";
 
   return (
     <AuthShell>
@@ -258,7 +342,10 @@ function KeyPage() {
           <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-3.5">
             <UserAvatar
               name={displayName}
-              src={admin?.avatar ?? undefined}
+              src={
+                admin?.avatar ??
+                undefined
+              }
               status="online"
             />
 
@@ -282,10 +369,12 @@ function KeyPage() {
           </div>
 
           <div className="p-6 sm:p-8">
-            {state.s === "success" ? (
+            {state.s ===
+            "success" ? (
               <div className="flex flex-col items-center py-4 text-center fade-up">
                 <span className="relative inline-flex size-14 items-center justify-center rounded-2xl border border-success/25 bg-success/10 text-success">
                   <span className="absolute inset-0 animate-ping rounded-2xl bg-success/10" />
+
                   <CheckCircle2 className="relative size-7" />
                 </span>
 
@@ -295,13 +384,13 @@ function KeyPage() {
 
                 <p className="mt-1.5 text-sm text-muted-foreground">
                   {state.key.plan} key · valid until{" "}
-                  {state.key.expiresAt === "perm"
+                  {state.key.expiresAt ===
+                  "perm"
                     ? "permanently"
-                    : formatDate(state.key.expiresAt)}
-                </p>
-
-                <p className="mt-4 font-mono text-sm tracking-wider text-primary">
-                  {state.key.key}
+                    : formatDate(
+                        state.key
+                          .expiresAt,
+                      )}
                 </p>
 
                 <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
@@ -310,7 +399,9 @@ function KeyPage() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={submit}>
+              <form
+                onSubmit={submit}
+              >
                 <div className="flex flex-col items-center text-center">
                   <LogoMark className="size-12 rounded-xl" />
 
@@ -319,7 +410,7 @@ function KeyPage() {
                   </h1>
 
                   <p className="mt-1.5 text-sm text-muted-foreground">
-                    Activate your license to continue to the dashboard.
+                    Paste the Key generated for your Discord account.
                   </p>
                 </div>
 
@@ -349,16 +440,18 @@ function KeyPage() {
                     autoComplete="off"
                     spellCheck={false}
                     inputMode="text"
-                    onChange={(e) => {
+                    onChange={(event) => {
                       setValue(
                         formatKeyInput(
-                          e.target.value,
+                          event.target.value,
                         ),
                       );
 
                       if (
-                        state.s !== "idle" &&
-                        state.s !== "loading"
+                        state.s !==
+                          "idle" &&
+                        state.s !==
+                          "loading"
                       ) {
                         setState({
                           s: "idle",
@@ -368,10 +461,12 @@ function KeyPage() {
                     placeholder="RD4X-XXXX-XXXX-XXXX"
                     aria-invalid={error}
                     disabled={
-                      state.s === "loading"
+                      state.s ===
+                      "loading"
                     }
                     className={cn(
                       "h-12 w-full rounded-xl border bg-background/60 pl-10 pr-4 font-mono text-[15px] uppercase tracking-[0.14em] text-foreground placeholder:text-muted-foreground/50 transition-colors focus:outline-none focus:ring-2 disabled:opacity-60",
+
                       error
                         ? "border-danger/50 focus:ring-danger/30"
                         : "border-input focus:border-primary/40 focus:ring-ring/40",
@@ -379,23 +474,27 @@ function KeyPage() {
                   />
                 </div>
 
-                {state.s === "invalid" && (
+                {state.s ===
+                  "invalid" && (
                   <p
                     role="alert"
                     className="mt-2.5 flex items-center gap-1.5 text-xs text-danger fade-up"
                   >
                     <AlertCircle className="size-3.5" />
-                    This key is invalid. Check for typos and try again.
+
+                    This Key is invalid, belongs to another Discord account, was already used, or is inactive.
                   </p>
                 )}
 
-                {state.s === "expired" && (
+                {state.s ===
+                  "expired" && (
                   <p
                     role="alert"
                     className="mt-2.5 flex items-center gap-1.5 text-xs text-warning fade-up"
                   >
                     <Clock className="size-3.5" />
-                    This key has expired. Renew it to continue.
+
+                    This Key has expired or was not redeemed in time.
                   </p>
                 )}
 
@@ -404,18 +503,20 @@ function KeyPage() {
                   size="lg"
                   disabled={
                     !complete ||
-                    state.s === "loading"
+                    state.s ===
+                      "loading"
                   }
                   className="mt-5 h-11 w-full"
                 >
-                  {state.s === "loading" ? (
+                  {state.s ===
+                  "loading" ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      Validating key…
+                      Verifying Key…
                     </>
                   ) : (
                     <>
-                      Continue
+                      Verify Key
                       <ArrowRight className="size-4" />
                     </>
                   )}
@@ -427,4 +528,4 @@ function KeyPage() {
       </div>
     </AuthShell>
   );
-                    }
+    }
