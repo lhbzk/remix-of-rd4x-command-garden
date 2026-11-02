@@ -55,8 +55,14 @@ export interface Ticket {
 }
 
 export type ReleaseChannel = "stable" | "beta" | "hotfix";
-
-export type DiscordChannelType = "text" | "announcement" | "forum";
+export type DiscordChannelType =
+  | "text"
+  | "announcement"
+  | "forum"
+  | "category"
+  | "voice"
+  | "stage"
+  | "unknown";
 
 export interface DiscordChannel {
   id: string;
