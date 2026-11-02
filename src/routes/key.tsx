@@ -227,9 +227,10 @@ function KeyPage() {
           setState({
             s: "invalid",
             reason:
+              result?.data?.reason ??
+              result?.reason ??
               result?.error ??
-              result?.data
-                ?.reason,
+              undefined,
           });
         }
 
@@ -267,7 +268,9 @@ function KeyPage() {
         } else {
           setState({
             s: "invalid",
-            reason,
+            reason:
+              botResult?.reason ??
+              undefined,
           });
         }
 
@@ -476,14 +479,23 @@ function KeyPage() {
 
                 {state.s ===
                   "invalid" && (
-                  <p
+                  <div
                     role="alert"
-                    className="mt-2.5 flex items-center gap-1.5 text-xs text-danger fade-up"
+                    className="mt-2.5 space-y-1.5 text-xs text-danger fade-up"
                   >
-                    <AlertCircle className="size-3.5" />
+                    <p className="flex items-center gap-1.5">
+                      <AlertCircle className="size-3.5" />
 
-                    This Key is invalid, belongs to another Discord account, was already used, or is inactive.
-                  </p>
+                      This Key is invalid, belongs to another Discord account, was already used, or is inactive.
+                    </p>
+
+                    {state.reason && (
+                      <p className="pl-5 font-mono text-[11px] text-muted-foreground">
+                        Reason:{" "}
+                        {state.reason}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {state.s ===
@@ -528,4 +540,4 @@ function KeyPage() {
       </div>
     </AuthShell>
   );
-    }
+}
