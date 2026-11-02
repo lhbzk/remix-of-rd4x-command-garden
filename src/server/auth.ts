@@ -364,4 +364,4 @@ export async function getKeySession(): Promise<KeySession | null> {
 
 export function clearKeySession(): void {
   deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
-  }
+    }
