@@ -2,10 +2,12 @@ import {
   createFileRoute,
   Outlet,
 } from "@tanstack/react-router";
+
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { requireDashboardAccess } from "@/lib/dashboard-auth.functions";
