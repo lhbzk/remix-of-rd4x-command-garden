@@ -59,7 +59,7 @@ export const getNotifications = () =>
  * how Discord authentication or bot communication works.
  */
 export const getDiscordChannels = () =>
-  request<DiscordChannel[]>("/v10/discord/channels", () => []);
+  request<DiscordChannel[]>("/api/discord/channels", () => []);
 
 export function searchMock(query: string): SearchResults {
   const q = query.trim().toLowerCase();
