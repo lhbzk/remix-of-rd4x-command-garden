@@ -3,16 +3,14 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
-import handler from "@tanstack/react-start/server-entry";
+import handler, {
+  createServerEntry,
+} from "@tanstack/react-start/server-entry";
 
-export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<Response> {
+export default createServerEntry({
+  async fetch(request, opts) {
     try {
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(request, opts);
 
       if (response.status < 500) {
         return response;
@@ -60,7 +58,7 @@ export default {
       });
     }
   },
-} satisfies ExportedHandler<Env>;
+});
 
 function isH3SwallowedErrorBody(body: string): boolean {
   try {
