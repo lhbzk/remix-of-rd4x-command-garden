@@ -18,7 +18,15 @@ export async function getDashboardSession() {
   }
 
   if (keySession.discordId !== discordSession.discordId) {
-    clearKeySession();
+    await clearKeySession();
+    return null;
+  }
+
+  if (
+    !keySession.expiresAt ||
+    Date.now() >= keySession.expiresAt
+  ) {
+    await clearKeySession();
     return null;
   }
 
