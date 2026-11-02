@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { env } from "cloudflare:workers";
 import { createOAuthState } from "@/server/auth";
 
 export const Route = createFileRoute("/api/auth/discord/login")({
@@ -6,9 +7,8 @@ export const Route = createFileRoute("/api/auth/discord/login")({
     handlers: {
       GET: async () => {
         try {
-          const clientId = process.env.DISCORD_CLIENT_ID;
-          const redirectUri =
-            process.env.DISCORD_OAUTH_REDIRECT_URI;
+          const clientId = env.DISCORD_CLIENT_ID;
+          const redirectUri = env.DISCORD_OAUTH_REDIRECT_URI;
 
           if (!clientId || !redirectUri) {
             console.error(
@@ -18,8 +18,7 @@ export const Route = createFileRoute("/api/auth/discord/login")({
             return Response.json(
               {
                 ok: false,
-                error:
-                  "Discord OAuth is not configured on the server.",
+                error: "Discord OAuth is not configured on the server.",
               },
               { status: 500 },
             );
@@ -38,10 +37,7 @@ export const Route = createFileRoute("/api/auth/discord/login")({
           const authorizationUrl =
             `https://discord.com/oauth2/authorize?${params.toString()}`;
 
-          return Response.redirect(
-            authorizationUrl,
-            302,
-          );
+          return Response.redirect(authorizationUrl, 302);
         } catch (error) {
           console.error(
             "[RD4X OAuth] Erro ao iniciar autenticação com Discord:",
@@ -51,8 +47,7 @@ export const Route = createFileRoute("/api/auth/discord/login")({
           return Response.json(
             {
               ok: false,
-              error:
-                "Não foi possível iniciar a autenticação do Discord.",
+              error: "Não foi possível iniciar a autenticação do Discord.",
             },
             { status: 500 },
           );
