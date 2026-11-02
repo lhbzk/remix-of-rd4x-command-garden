@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { env } from "cloudflare:workers";
 import {
   consumeOAuthState,
   createDiscordSession,
@@ -16,53 +17,66 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
 
         if (oauthError) {
           return Response.redirect(
-            new URL("/login?error=discord_denied", request.url),
+            new URL(
+              "/login?error=discord_denied",
+              request.url,
+            ),
             302,
           );
         }
 
         if (!code || !state) {
           return Response.redirect(
-            new URL("/login?error=invalid_oauth", request.url),
-            302,
-          );
-        }
-
-        const validState = await consumeOAuthState(state);
-
-        if (!validState) {
-          console.warn(
-            "[RD4X AUTH] OAuth state inválido ou expirado.",
-          );
-
-          return Response.redirect(
-            new URL("/login?error=invalid_state", request.url),
-            302,
-          );
-        }
-
-        const RD4X_API_URL = process.env.RD4X_API_URL;
-        const DASHBOARD_API_KEY =
-          process.env.DASHBOARD_API_KEY;
-        const DISCORD_OAUTH_REDIRECT_URI =
-          process.env.DISCORD_OAUTH_REDIRECT_URI;
-
-        if (
-          !RD4X_API_URL ||
-          !DASHBOARD_API_KEY ||
-          !DISCORD_OAUTH_REDIRECT_URI
-        ) {
-          console.error(
-            "[RD4X AUTH] Variáveis de ambiente do OAuth não configuradas.",
-          );
-
-          return Response.redirect(
-            new URL("/login?error=server_config", request.url),
+            new URL(
+              "/login?error=invalid_oauth",
+              request.url,
+            ),
             302,
           );
         }
 
         try {
+          const validState =
+            await consumeOAuthState(state);
+
+          if (!validState) {
+            console.warn(
+              "[RD4X AUTH] OAuth state inválido ou expirado.",
+            );
+
+            return Response.redirect(
+              new URL(
+                "/login?error=invalid_state",
+                request.url,
+              ),
+              302,
+            );
+          }
+
+          const RD4X_API_URL = env.RD4X_API_URL;
+          const DASHBOARD_API_KEY =
+            env.DASHBOARD_API_KEY;
+          const DISCORD_OAUTH_REDIRECT_URI =
+            env.DISCORD_OAUTH_REDIRECT_URI;
+
+          if (
+            !RD4X_API_URL ||
+            !DASHBOARD_API_KEY ||
+            !DISCORD_OAUTH_REDIRECT_URI
+          ) {
+            console.error(
+              "[RD4X AUTH] Variáveis de ambiente do OAuth não configuradas.",
+            );
+
+            return Response.redirect(
+              new URL(
+                "/login?error=server_config",
+                request.url,
+              ),
+              302,
+            );
+          }
+
           const response = await fetch(
             `${RD4X_API_URL.replace(
               /\/$/,
@@ -71,18 +85,22 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
             {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${DASHBOARD_API_KEY}`,
+                Authorization:
+                  `Bearer ${DASHBOARD_API_KEY}`,
                 "Content-Type": "application/json",
                 Accept: "application/json",
               },
               body: JSON.stringify({
                 code,
-                redirectUri: DISCORD_OAUTH_REDIRECT_URI,
+                redirectUri:
+                  DISCORD_OAUTH_REDIRECT_URI,
               }),
             },
           );
 
-          const data = await response.json().catch(() => null);
+          const data = await response
+            .json()
+            .catch(() => null);
 
           if (
             !response.ok ||
@@ -128,13 +146,16 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
             username: discordUser.username,
             globalName:
               discordUser.globalName ?? null,
-            avatar: discordUser.avatar ?? null,
+            avatar:
+              discordUser.avatar ?? null,
             role:
               discordUser.role === "Dono"
                 ? "Dono"
                 : "Administrador",
-            isOwner: Boolean(discordUser.isOwner),
-            isAdmin: Boolean(discordUser.isAdmin),
+            isOwner:
+              Boolean(discordUser.isOwner),
+            isAdmin:
+              Boolean(discordUser.isAdmin),
           });
 
           return new Response(null, {
@@ -149,7 +170,7 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
           });
         } catch (error) {
           console.error(
-            "[RD4X AUTH] Erro ao comunicar com o servidor RD4X:",
+            "[RD4X AUTH] Erro durante o callback OAuth:",
             error,
           );
 
