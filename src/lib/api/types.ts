@@ -19,6 +19,7 @@ export interface User {
 }
 
 export type KeyStatus = "active" | "expired" | "revoked";
+
 export interface KeyRecord {
   key: string;
   owner: string;
@@ -54,6 +55,17 @@ export interface Ticket {
 }
 
 export type ReleaseChannel = "stable" | "beta" | "hotfix";
+
+export type DiscordChannelType = "text" | "announcement" | "forum";
+
+export interface DiscordChannel {
+  id: string;
+  name: string;
+  type: DiscordChannelType;
+  category: string | null;
+  canSendMessages: boolean;
+}
+
 export interface Release {
   id: string;
   version: string;
@@ -63,10 +75,16 @@ export interface Release {
   author: string;
   downloads: number;
   changes: { type: "feature" | "fix" | "improvement"; text: string }[];
+
+  // Discord publication metadata.
+  discordChannelId?: string | null;
+  discordMessageId?: string | null;
+  publishedToDiscord?: boolean;
 }
 
 export type Severity = "critical" | "major" | "minor";
 export type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved";
+
 export interface Incident {
   id: string;
   title: string;
@@ -86,6 +104,7 @@ export interface IncidentsPayload {
 }
 
 export type AuditStatus = "success" | "failed" | "warning";
+
 export interface AuditEvent {
   id: string;
   timestamp: string;
@@ -110,6 +129,7 @@ export interface Transcript {
 }
 
 export type HealthStatus = "operational" | "degraded" | "down";
+
 export interface ServiceHealth {
   service: string;
   status: HealthStatus;
