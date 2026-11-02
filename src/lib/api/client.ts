@@ -1,7 +1,10 @@
 // Transport layer. When VITE_RD4X_API_URL is set, requests go to the external API;
 // otherwise they resolve against the local mock dataset with realistic latency.
 
-const BASE_URL = (import.meta.env["VITE_RD4X_API_URL"] as string | undefined)?.replace(/\/$/, "");
+const BASE_URL = (import.meta.env["VITE_RD4X_API_URL"] as string | undefined)?.replace(
+  /\/$/,
+  "",
+);
 
 export class ApiError extends Error {
   constructor(
@@ -14,10 +17,12 @@ export class ApiError extends Error {
 }
 
 let simulateFailures = false;
+
 export const mockControls = {
   get simulateFailures() {
     return simulateFailures;
   },
+
   setSimulateFailures(v: boolean) {
     simulateFailures = v;
   },
@@ -35,16 +40,47 @@ export async function request<T>(
   mock: () => T,
   init?: RequestInit & { latency?: number },
 ): Promise<T> {
-  if (BASE_URL) {
-    const res = await fetch(`${BASE_URL}${path}`, {
+  const isInternalApi = path.startsWith("/api/");
+
+  if (BASE_URL || isInternalApi) {
+    const url = BASE_URL ? `${BASE_URL}${path}` : path;
+
+    const res = await fetch(url, {
       ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+        Accept: "application/json",
+        ...(init?.headers ?? {}),
+      },
     });
-    if (!res.ok) throw new ApiError(`Request failed: ${res.statusText}`, res.status);
+
+    if (!res.ok) {
+      let message = `Request failed: ${res.statusText}`;
+
+      try {
+        const data = (await res.json()) as { error?: string };
+        if (data?.error) {
+          message = data.error;
+        }
+      } catch {
+        // Keep the HTTP status message when the response is not JSON.
+      }
+
+      throw new ApiError(message, res.status);
+    }
+
     return (await res.json()) as T;
   }
 
   await delay(init?.latency ?? 320 + Math.random() * 380);
-  if (simulateFailures) throw new ApiError("The RD4X API is not responding (simulated).", 503);
+
+  if (simulateFailures) {
+    throw new ApiError(
+      "The RD4X API is not responding (simulated).",
+      503,
+    );
+  }
+
   return structuredClone(mock());
-}
+                         }
