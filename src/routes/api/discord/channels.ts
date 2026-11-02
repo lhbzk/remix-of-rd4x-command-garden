@@ -1,16 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const RD4X_API_URL = process.env.RD4X_API_URL;
-const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY;
-
 export const Route = createFileRoute("/api/discord/channels")({
   server: {
     handlers: {
       GET: async () => {
-        if (!RD4X_API_URL || !DASHBOARD_API_KEY) {
-          console.error(
-            "[RD4X] RD4X_API_URL ou DASHBOARD_API_KEY não configurados.",
-          );
+  const RD4X_API_URL = process.env.RD4X_API_URL;
+  const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY;
+
+  if (!RD4X_API_URL || !DASHBOARD_API_KEY) {
 
           return Response.json(
             {
