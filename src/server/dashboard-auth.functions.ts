@@ -5,15 +5,21 @@ import { getDashboardSession } from "@/server/dashboard-auth";
 export const requireDashboardAccess = createServerFn({
   method: "GET",
 }).handler(async () => {
-  const discordSession = await getDashboardSession();
+  const dashboardSession = await getDashboardSession();
 
-  if (!discordSession) {
+  if (!dashboardSession) {
     throw redirect({
       to: "/login",
     });
   }
 
   return {
-    discordId: discordSession.discordId,
+    discordId: dashboardSession.discordId,
+    username: dashboardSession.username,
+    globalName: dashboardSession.globalName,
+    avatar: dashboardSession.avatar,
+    role: dashboardSession.role,
+    isOwner: dashboardSession.isOwner,
+    isAdmin: dashboardSession.isAdmin,
   };
 });
