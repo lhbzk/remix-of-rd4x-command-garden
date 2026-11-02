@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import {
   deleteCookie,
   getCookie,
@@ -44,7 +45,7 @@ type OAuthState = {
 };
 
 function getSessionSecret(): string {
-  const secret = process.env.DASHBOARD_SESSION_SECRET;
+  const secret = env.DASHBOARD_SESSION_SECRET;
 
   if (!secret || secret.length < 32) {
     throw new Error(
@@ -68,26 +69,17 @@ function bytesToBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/g, "");
 }
 
-function base64UrlToBytes(
-  value: string,
-): Uint8Array | null {
+function base64UrlToBytes(value: string): Uint8Array | null {
   try {
     const normalized = value
       .replace(/-/g, "+")
       .replace(/_/g, "/")
-      .padEnd(
-        Math.ceil(value.length / 4) * 4,
-        "=",
-      );
+      .padEnd(Math.ceil(value.length / 4) * 4, "=");
 
     const binary = atob(normalized);
     const bytes = new Uint8Array(binary.length);
 
-    for (
-      let index = 0;
-      index < binary.length;
-      index++
-    ) {
+    for (let index = 0; index < binary.length; index++) {
       bytes[index] = binary.charCodeAt(index);
     }
 
@@ -98,16 +90,12 @@ function base64UrlToBytes(
 }
 
 function encodePayload(payload: unknown): string {
-  const bytes = new TextEncoder().encode(
-    JSON.stringify(payload),
-  );
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
 
   return bytesToBase64Url(bytes);
 }
 
-function decodePayload<T>(
-  value: string,
-): T | null {
+function decodePayload<T>(value: string): T | null {
   const bytes = base64UrlToBytes(value);
 
   if (!bytes) {
@@ -115,17 +103,13 @@ function decodePayload<T>(
   }
 
   try {
-    return JSON.parse(
-      new TextDecoder().decode(bytes),
-    ) as T;
+    return JSON.parse(new TextDecoder().decode(bytes)) as T;
   } catch {
     return null;
   }
 }
 
-async function signValue(
-  value: string,
-): Promise<string> {
+async function signValue(value: string): Promise<string> {
   const secret = getSessionSecret();
 
   const key = await crypto.subtle.importKey(
@@ -145,9 +129,7 @@ async function signValue(
     new TextEncoder().encode(value),
   );
 
-  return bytesToBase64Url(
-    new Uint8Array(signature),
-  );
+  return bytesToBase64Url(new Uint8Array(signature));
 }
 
 async function verifySignature(
@@ -155,8 +137,7 @@ async function verifySignature(
   signature: string,
 ): Promise<boolean> {
   const secret = getSessionSecret();
-  const signatureBytes =
-    base64UrlToBytes(signature);
+  const signatureBytes = base64UrlToBytes(signature);
 
   if (!signatureBytes) {
     return false;
@@ -181,54 +162,31 @@ async function verifySignature(
   );
 }
 
-async function seal<T>(
-  payload: T,
-): Promise<string> {
-  const encodedPayload =
-    encodePayload(payload);
-
-  const signature =
-    await signValue(encodedPayload);
+async function seal<T>(payload: T): Promise<string> {
+  const encodedPayload = encodePayload(payload);
+  const signature = await signValue(encodedPayload);
 
   return `${encodedPayload}.${signature}`;
 }
 
-async function unseal<T>(
-  value: string,
-): Promise<T | null> {
-  const separator =
-    value.lastIndexOf(".");
+async function unseal<T>(value: string): Promise<T | null> {
+  const separator = value.lastIndexOf(".");
 
-  if (
-    separator <= 0 ||
-    separator === value.length - 1
-  ) {
+  if (separator <= 0 || separator === value.length - 1) {
     return null;
   }
 
-  const encodedPayload =
-    value.slice(0, separator);
+  const encodedPayload = value.slice(0, separator);
+  const signature = value.slice(separator + 1);
 
-  const signature =
-    value.slice(separator + 1);
-
-  if (
-    !(await verifySignature(
-      encodedPayload,
-      signature,
-    ))
-  ) {
+  if (!(await verifySignature(encodedPayload, signature))) {
     return null;
   }
 
-  return decodePayload<T>(
-    encodedPayload,
-  );
+  return decodePayload<T>(encodedPayload);
 }
 
-function isValidExpiry(
-  expiresAt: unknown,
-): expiresAt is number {
+function isValidExpiry(expiresAt: unknown): expiresAt is number {
   return (
     typeof expiresAt === "number" &&
     Number.isFinite(expiresAt) &&
@@ -250,20 +208,15 @@ export async function createOAuthState(): Promise<string> {
   const payload: OAuthState = {
     state: generateRandomState(),
     issuedAt: now,
-    expiresAt:
-      now + OAUTH_STATE_MAX_AGE * 1000,
+    expiresAt: now + OAUTH_STATE_MAX_AGE * 1000,
   };
 
   const token = await seal(payload);
 
-  setCookie(
-    OAUTH_STATE_COOKIE,
-    token,
-    {
-      ...COOKIE_OPTIONS,
-      maxAge: OAUTH_STATE_MAX_AGE,
-    },
-  );
+  setCookie(OAUTH_STATE_COOKIE, token, {
+    ...COOKIE_OPTIONS,
+    maxAge: OAUTH_STATE_MAX_AGE,
+  });
 
   return payload.state;
 }
@@ -272,39 +225,25 @@ export async function consumeOAuthState(
   returnedState: string,
 ): Promise<boolean> {
   if (!returnedState) {
-    deleteCookie(
-      OAUTH_STATE_COOKIE,
-      COOKIE_OPTIONS,
-    );
-
+    deleteCookie(OAUTH_STATE_COOKIE, COOKIE_OPTIONS);
     return false;
   }
 
-  const token = getCookie(
-    OAUTH_STATE_COOKIE,
-  );
+  const token = getCookie(OAUTH_STATE_COOKIE);
 
-  deleteCookie(
-    OAUTH_STATE_COOKIE,
-    COOKIE_OPTIONS,
-  );
+  deleteCookie(OAUTH_STATE_COOKIE, COOKIE_OPTIONS);
 
   if (!token) {
     return false;
   }
 
-  const payload =
-    await unseal<OAuthState>(token);
+  const payload = await unseal<OAuthState>(token);
 
   if (!payload) {
     return false;
   }
 
-  if (
-    !isValidExpiry(
-      payload.expiresAt,
-    )
-  ) {
+  if (!isValidExpiry(payload.expiresAt)) {
     return false;
   }
 
@@ -320,64 +259,38 @@ export async function consumeOAuthState(
 }
 
 export async function createDiscordSession(
-  data: Omit<
-    DiscordSession,
-    "issuedAt" | "expiresAt"
-  >,
+  data: Omit<DiscordSession, "issuedAt" | "expiresAt">,
 ): Promise<void> {
   const now = Date.now();
 
   const payload: DiscordSession = {
     ...data,
     issuedAt: now,
-    expiresAt:
-      now + DISCORD_SESSION_MAX_AGE * 1000,
+    expiresAt: now + DISCORD_SESSION_MAX_AGE * 1000,
   };
 
   const token = await seal(payload);
 
-  setCookie(
-    DISCORD_SESSION_COOKIE,
-    token,
-    {
-      ...COOKIE_OPTIONS,
-      maxAge: DISCORD_SESSION_MAX_AGE,
-    },
-  );
+  setCookie(DISCORD_SESSION_COOKIE, token, {
+    ...COOKIE_OPTIONS,
+    maxAge: DISCORD_SESSION_MAX_AGE,
+  });
 
-  deleteCookie(
-    KEY_SESSION_COOKIE,
-    COOKIE_OPTIONS,
-  );
+  deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
 }
 
 export async function getDiscordSession(): Promise<DiscordSession | null> {
-  const token = getCookie(
-    DISCORD_SESSION_COOKIE,
-  );
+  const token = getCookie(DISCORD_SESSION_COOKIE);
 
   if (!token) {
     return null;
   }
 
-  const payload =
-    await unseal<DiscordSession>(token);
+  const payload = await unseal<DiscordSession>(token);
 
-  if (
-    !payload ||
-    !isValidExpiry(
-      payload.expiresAt,
-    )
-  ) {
-    deleteCookie(
-      DISCORD_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
-
-    deleteCookie(
-      KEY_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
+  if (!payload || !isValidExpiry(payload.expiresAt)) {
+    deleteCookie(DISCORD_SESSION_COOKIE, COOKIE_OPTIONS);
+    deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
 
     return null;
   }
@@ -388,15 +301,8 @@ export async function getDiscordSession(): Promise<DiscordSession | null> {
     typeof payload.username !== "string" ||
     !payload.username
   ) {
-    deleteCookie(
-      DISCORD_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
-
-    deleteCookie(
-      KEY_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
+    deleteCookie(DISCORD_SESSION_COOKIE, COOKIE_OPTIONS);
+    deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
 
     return null;
   }
@@ -405,15 +311,8 @@ export async function getDiscordSession(): Promise<DiscordSession | null> {
 }
 
 export function clearDiscordSession(): void {
-  deleteCookie(
-    DISCORD_SESSION_COOKIE,
-    COOKIE_OPTIONS,
-  );
-
-  deleteCookie(
-    KEY_SESSION_COOKIE,
-    COOKIE_OPTIONS,
-  );
+  deleteCookie(DISCORD_SESSION_COOKIE, COOKIE_OPTIONS);
+  deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
 }
 
 export async function createKeySession(
@@ -430,42 +329,25 @@ export async function createKeySession(
   const payload: KeySession = {
     discordId,
     issuedAt: now,
-    expiresAt:
-      now + KEY_SESSION_MAX_AGE * 1000,
+    expiresAt: now + KEY_SESSION_MAX_AGE * 1000,
   };
 
   const token = await seal(payload);
 
-  setCookie(
-    KEY_SESSION_COOKIE,
-    token,
-    COOKIE_OPTIONS,
-  );
+  setCookie(KEY_SESSION_COOKIE, token, COOKIE_OPTIONS);
 }
 
 export async function getKeySession(): Promise<KeySession | null> {
-  const token = getCookie(
-    KEY_SESSION_COOKIE,
-  );
+  const token = getCookie(KEY_SESSION_COOKIE);
 
   if (!token) {
     return null;
   }
 
-  const payload =
-    await unseal<KeySession>(token);
+  const payload = await unseal<KeySession>(token);
 
-  if (
-    !payload ||
-    !isValidExpiry(
-      payload.expiresAt,
-    )
-  ) {
-    deleteCookie(
-      KEY_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
-
+  if (!payload || !isValidExpiry(payload.expiresAt)) {
+    deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
     return null;
   }
 
@@ -473,11 +355,7 @@ export async function getKeySession(): Promise<KeySession | null> {
     typeof payload.discordId !== "string" ||
     !payload.discordId
   ) {
-    deleteCookie(
-      KEY_SESSION_COOKIE,
-      COOKIE_OPTIONS,
-    );
-
+    deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
     return null;
   }
 
@@ -485,8 +363,5 @@ export async function getKeySession(): Promise<KeySession | null> {
 }
 
 export function clearKeySession(): void {
-  deleteCookie(
-    KEY_SESSION_COOKIE,
-    COOKIE_OPTIONS,
-  );
-}
+  deleteCookie(KEY_SESSION_COOKIE, COOKIE_OPTIONS);
+  }
