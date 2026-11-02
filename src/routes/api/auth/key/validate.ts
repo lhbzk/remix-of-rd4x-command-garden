@@ -56,10 +56,11 @@ export const Route = createFileRoute(
         }
 
         const RD4X_API_URL =
-  env.RD4X_API_URL;
+          env.RD4X_API_URL;
 
-const DASHBOARD_API_KEY =
-  env.DASHBOARD_API_KEY;
+        const DASHBOARD_API_KEY =
+          env.DASHBOARD_API_KEY;
+
         if (
           !RD4X_API_URL ||
           !DASHBOARD_API_KEY
