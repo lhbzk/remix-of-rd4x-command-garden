@@ -73,6 +73,12 @@ function getSessionSecret(): string {
   return secret;
 }
 
+function normalizeDiscordId(
+  value: unknown,
+): string {
+  return String(value ?? "").trim();
+}
+
 function bytesToBase64Url(
   bytes: Uint8Array,
 ): string {
@@ -412,10 +418,23 @@ export async function createDiscordSession(
     "issuedAt" | "expiresAt"
   >,
 ): Promise<void> {
+  const discordId =
+    normalizeDiscordId(
+      data.discordId,
+    );
+
+  if (!discordId) {
+    throw new Error(
+      "Cannot create a Discord session without a Discord ID.",
+    );
+  }
+
   const now = Date.now();
 
   const payload: DiscordSession = {
     ...data,
+
+    discordId,
 
     issuedAt: now,
 
@@ -478,10 +497,13 @@ export async function getDiscordSession(): Promise<DiscordSession | null> {
     return null;
   }
 
+  const discordId =
+    normalizeDiscordId(
+      payload.discordId,
+    );
+
   if (
-    typeof payload.discordId !==
-      "string" ||
-    !payload.discordId ||
+    !discordId ||
     typeof payload.username !==
       "string" ||
     !payload.username
@@ -499,7 +521,10 @@ export async function getDiscordSession(): Promise<DiscordSession | null> {
     return null;
   }
 
-  return payload;
+  return {
+    ...payload,
+    discordId,
+  };
 }
 
 export function clearDiscordSession(): void {
@@ -517,7 +542,12 @@ export function clearDiscordSession(): void {
 export async function createKeySession(
   discordId: string,
 ): Promise<void> {
-  if (!discordId) {
+  const normalizedDiscordId =
+    normalizeDiscordId(
+      discordId,
+    );
+
+  if (!normalizedDiscordId) {
     throw new Error(
       "Cannot create a key session without a Discord ID.",
     );
@@ -526,7 +556,8 @@ export async function createKeySession(
   const now = Date.now();
 
   const payload: KeySession = {
-    discordId,
+    discordId:
+      normalizedDiscordId,
 
     issuedAt: now,
 
@@ -579,11 +610,12 @@ export async function getKeySession(): Promise<KeySession | null> {
     return null;
   }
 
-  if (
-    typeof payload.discordId !==
-      "string" ||
-    !payload.discordId
-  ) {
+  const discordId =
+    normalizeDiscordId(
+      payload.discordId,
+    );
+
+  if (!discordId) {
     deleteCookie(
       KEY_SESSION_COOKIE,
       COOKIE_OPTIONS,
@@ -592,7 +624,10 @@ export async function getKeySession(): Promise<KeySession | null> {
     return null;
   }
 
-  return payload;
+  return {
+    ...payload,
+    discordId,
+  };
 }
 
 export function clearKeySession(): void {
@@ -600,4 +635,4 @@ export function clearKeySession(): void {
     KEY_SESSION_COOKIE,
     COOKIE_OPTIONS,
   );
-}
+      }
