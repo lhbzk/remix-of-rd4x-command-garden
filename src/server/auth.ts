@@ -44,7 +44,7 @@ type OAuthState = {
 };
 
 function getSessionSecret(): string {
-  const secret = process.env.DASHBOARD_SESSION_SECRET;
+  const secret = env.DASHBOARD_SESSION_SECRET;
 
   if (!secret || secret.length < 32) {
     throw new Error(
