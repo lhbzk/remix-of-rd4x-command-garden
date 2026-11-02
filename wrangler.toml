@@ -1,3 +1,6 @@
+name = "rd4x-dashboard"
+compatibility_date = "2026-11-01"
+
 [observability]
 enabled = true
 
@@ -14,3 +17,13 @@ persist = true
 
 [observability.issues]
 enabled = true
+
+[vars]
+DISCORD_CLIENT_ID = "1549552943001378962"
+DISCORD_OAUTH_REDIRECT_URI = "https://rd4x-dashboard.ronaldoo-sev7n.workers.dev/api/auth/discord/callback"
+RD4X_API_URL = "https://aidhmfv7af.apps.bot-hosting.cloud"
+
+# Secrets configuradas separadamente no Cloudflare:
+# DISCORD_CLIENT_SECRET
+# DASHBOARD_API_KEY
+# DASHBOARD_SESSION_SECRET
