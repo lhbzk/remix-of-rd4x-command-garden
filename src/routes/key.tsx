@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -12,7 +12,11 @@ import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/dashboard/AuthShell";
 import { LogoMark } from "@/components/dashboard/Logo";
 import { UserAvatar } from "@/components/dashboard/UserAvatar";
-import { formatDate, formatKeyInput, isCompleteKey } from "@/lib/format";
+import {
+  formatDate,
+  formatKeyInput,
+  isCompleteKey,
+} from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { pageHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -56,41 +60,54 @@ function KeyPage() {
 
   const complete = isCompleteKey(value);
 
-  const loadDiscordSession = async () => {
-    try {
-      const response = await fetch("/api/auth/discord/me", {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-      });
+  useEffect(() => {
+    let cancelled = false;
 
-      if (!response.ok) return;
-
-      const data = await response.json();
-
-      if (data?.ok && data?.data) {
-        setAdmin({
-          username:
-            data.data.username ??
-            data.data.globalName ??
-            "admin",
-          displayName:
-            data.data.globalName ??
-            data.data.username ??
-            "Admin",
-          avatar: data.data.avatar ?? null,
+    const loadDiscordSession = async () => {
+      try {
+        const response = await fetch("/api/auth/discord/me", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
         });
-      }
-    } catch {
-      // A sessão inválida será tratada pelo servidor de validação da Key.
-    }
-  };
 
-  useState(() => {
+        if (!response.ok) {
+          if (!cancelled && response.status === 401) {
+            navigate({ to: "/login" });
+          }
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!cancelled && data?.ok && data?.data) {
+          setAdmin({
+            username:
+              data.data.username ??
+              data.data.globalName ??
+              "admin",
+            displayName:
+              data.data.globalName ??
+              data.data.username ??
+              "Admin",
+            avatar: data.data.avatar ?? null,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setAdmin(null);
+        }
+      }
+    };
+
     void loadDiscordSession();
-  });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -154,12 +171,36 @@ function KeyPage() {
         return;
       }
 
-      const data = result.data ?? {};
+      const keyResult = result?.data;
+
+      if (keyResult?.valid !== true) {
+        const reason = String(
+          keyResult?.reason ?? "",
+        ).toLowerCase();
+
+        const expired =
+          reason.includes("expir") ||
+          keyResult?.status === "expired";
+
+        if (expired) {
+          setState({
+            s: "expired",
+            at:
+              keyResult?.expiredAt ??
+              new Date().toISOString(),
+          });
+        } else {
+          setState({ s: "invalid" });
+        }
+
+        setShakeId((x) => x + 1);
+        return;
+      }
+
+      const data = keyResult?.data ?? {};
 
       const keyRecord: KeyRecord = {
-        key:
-          data.key ??
-          value,
+        key: value,
         plan:
           data.plan ??
           data.type ??
@@ -167,7 +208,11 @@ function KeyPage() {
         expiresAt:
           data.expiresAt ??
           data.expiration ??
-          "perm",
+          (
+            data.sessionExpiresAt
+              ? data.sessionExpiresAt
+              : "perm"
+          ),
       };
 
       setState({
@@ -212,6 +257,7 @@ function KeyPage() {
           <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-3.5">
             <UserAvatar
               name={displayName}
+              src={admin?.avatar ?? undefined}
               status="online"
             />
 
@@ -380,4 +426,4 @@ function KeyPage() {
       </div>
     </AuthShell>
   );
-  }
+        }
