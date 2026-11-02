@@ -37,7 +37,13 @@ export const Route = createFileRoute("/api/auth/discord/login")({
           const authorizationUrl =
             `https://discord.com/oauth2/authorize?${params.toString()}`;
 
-          return Response.redirect(authorizationUrl, 302);
+          return new Response(null, {
+            status: 302,
+            headers: {
+              Location: authorizationUrl,
+              "Cache-Control": "no-store",
+            },
+          });
         } catch (error) {
           console.error(
             "[RD4X OAuth] Erro ao iniciar autenticação com Discord:",
