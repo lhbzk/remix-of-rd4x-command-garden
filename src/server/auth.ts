@@ -6,9 +6,11 @@ import {
 
 const DISCORD_SESSION_COOKIE = "__Host-rd4x-discord";
 const OAUTH_STATE_COOKIE = "__Host-rd4x-oauth";
+const KEY_SESSION_COOKIE = "__Host-rd4x-key";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 const OAUTH_STATE_MAX_AGE = 10 * 60;
+const KEY_SESSION_MAX_AGE = 60 * 60 * 2;
 
 export interface DiscordSession {
   discordId: string;
@@ -18,6 +20,12 @@ export interface DiscordSession {
   role: "Dono" | "Administrador";
   isOwner: boolean;
   isAdmin: boolean;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+export interface KeySession {
+  discordId: string;
   issuedAt: number;
   expiresAt: number;
 }
@@ -306,61 +314,82 @@ export async function consumeOAuthState(
 
   return result === 0;
 }
-const KEY_SESSION_COOKIE = "__Host-rd4x-key";
-const KEY_SESSION_MAX_AGE = 60 * 60 * 2; // 2 horas
 
-type KeySession = {
-  discordId: string;
-  key: string;
-  issuedAt: number;
-  expiresAt: number;
-};
-
+/**
+ * Cria a autorização temporária do RD4X Key.
+ *
+ * A Key em si NÃO é armazenada no cookie.
+ * O cookie contém somente a prova assinada
+ * de que aquela conta já passou pela validação.
+ *
+ * É um cookie de sessão: não possui Max-Age.
+ * Também existe uma expiração interna de 2 horas.
+ */
 export async function createKeySession(
   discordId: string,
-  key: string,
 ) {
   const issuedAt = Date.now();
 
   const session: KeySession = {
-    discordId,
-    key,
+    discordId: String(discordId),
     issuedAt,
     expiresAt:
       issuedAt + KEY_SESSION_MAX_AGE * 1000,
   };
 
-  const payload = base64urlEncode(
-    JSON.stringify(session),
+  const token = await seal(session);
+
+  setCookie(
+    KEY_SESSION_COOKIE,
+    token,
+    {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    },
   );
 
-  const signature = await sign(payload);
-
-  const cookieValue =
-    `${payload}.${signature}`;
-
-  const headers = new Headers();
-
-  headers.append(
-    "Set-Cookie",
-    [
-      `${KEY_SESSION_COOKIE}=${cookieValue}`,
-      "Path=/",
-      "HttpOnly",
-      "Secure",
-      "SameSite=Lax",
-      `Max-Age=${KEY_SESSION_MAX_AGE}`,
-    ].join("; "),
-  );
-
-  return headers;
+  return session;
 }
 
-export async function getKeySession(): Promise<KeySession | null> {
-  const cookieHeader =
-    (await import("next/headers").catch(() => null))
-      ? null
-      : null;
+export async function getKeySession() {
+  const token = getCookie(
+    KEY_SESSION_COOKIE,
+  );
 
-  return null;
+  if (!token) {
+    return null;
   }
+
+  const session =
+    await unseal<KeySession>(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (
+    !session.discordId ||
+    !session.issuedAt ||
+    !session.expiresAt ||
+    session.expiresAt <= Date.now()
+  ) {
+    clearKeySession();
+    return null;
+  }
+
+  return session;
+}
+
+export function clearKeySession() {
+  deleteCookie(
+    KEY_SESSION_COOKIE,
+    {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    },
+  );
+}
