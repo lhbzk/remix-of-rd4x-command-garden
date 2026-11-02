@@ -1,7 +1,6 @@
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
-import { renderErrorPage } from "./lib/error-page";
 
 import handler, {
   createServerEntry,
@@ -19,28 +18,18 @@ export default createServerEntry({
       const contentType =
         response.headers.get("content-type") ?? "";
 
-      if (!contentType.includes("application/json")) {
-        return response;
+      if (contentType.includes("application/json")) {
+        const body = await response.clone().text();
+
+        if (isH3SwallowedErrorBody(body)) {
+          console.error(
+            consumeLastCapturedError() ??
+              new Error(`h3 swallowed SSR error: ${body}`),
+          );
+        }
       }
 
-      const body = await response.clone().text();
-
-      if (!isH3SwallowedErrorBody(body)) {
-        return response;
-      }
-
-      console.error(
-        consumeLastCapturedError() ??
-          new Error(`h3 swallowed SSR error: ${body}`),
-      );
-
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-        },
-      });
+      return response;
     } catch (error) {
       console.error(
         consumeLastCapturedError() ??
@@ -49,13 +38,7 @@ export default createServerEntry({
             : new Error(String(error))),
       );
 
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-        },
-      });
+      throw error;
     }
   },
 });
