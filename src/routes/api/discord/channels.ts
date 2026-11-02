@@ -1,14 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getDashboardSession } from "@/server/dashboard-auth";
 
 export const Route = createFileRoute("/api/discord/channels")({
   server: {
     handlers: {
       GET: async () => {
-  const RD4X_API_URL = process.env.RD4X_API_URL;
-  const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY;
+        const session = await getDashboardSession();
 
-  if (!RD4X_API_URL || !DASHBOARD_API_KEY) {
+        if (!session) {
+          return Response.json(
+            {
+              ok: false,
+              error: "Dashboard authentication required.",
+            },
+            {
+              status: 401,
+              headers: {
+                "Cache-Control": "no-store",
+              },
+            },
+          );
+        }
 
+        const RD4X_API_URL = process.env.RD4X_API_URL;
+        const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY;
+
+        if (!RD4X_API_URL || !DASHBOARD_API_KEY) {
           return Response.json(
             {
               ok: false,
@@ -45,16 +62,21 @@ export const Route = createFileRoute("/api/discord/channels")({
                   data?.error ||
                   "Não foi possível carregar os canais do Discord.",
               },
-              { status: response.status },
+              {
+                status: response.status,
+                headers: {
+                  "Cache-Control": "no-store",
+                },
+              },
             );
           }
 
           return Response.json(data?.channels ?? [], {
-  status: 200,
-  headers: {
-    "Cache-Control": "no-store",
-  },
-});
+            status: 200,
+            headers: {
+              "Cache-Control": "no-store",
+            },
+          });
         } catch (error) {
           console.error(
             "[RD4X] Erro ao consultar canais do Discord:",
@@ -64,9 +86,15 @@ export const Route = createFileRoute("/api/discord/channels")({
           return Response.json(
             {
               ok: false,
-              error: "Não foi possível conectar ao servidor do Discord.",
+              error:
+                "Não foi possível conectar ao servidor do Discord.",
             },
-            { status: 502 },
+            {
+              status: 502,
+              headers: {
+                "Cache-Control": "no-store",
+              },
+            },
           );
         }
       },
