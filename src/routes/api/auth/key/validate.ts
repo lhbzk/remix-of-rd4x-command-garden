@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { env } from "cloudflare:workers";
 import {
   createKeySession,
   getDiscordSession,
 } from "@/server/auth";
 
-export const Route = createFileRoute("/api/auth/key/validate")({
+export const Route = createFileRoute(
+  "/api/auth/key/validate",
+)({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const session = await getDiscordSession();
+        const session =
+          await getDiscordSession();
 
         if (!session) {
           return Response.json(
@@ -51,11 +55,16 @@ export const Route = createFileRoute("/api/auth/key/validate")({
           );
         }
 
-        const RD4X_API_URL = process.env.RD4X_API_URL;
-        const DASHBOARD_API_KEY =
-          process.env.DASHBOARD_API_KEY;
+        const RD4X_API_URL =
+          env.RD4X_API_URL;
 
-        if (!RD4X_API_URL || !DASHBOARD_API_KEY) {
+        const DASHBOARD_API_KEY =
+          env.DASHBOARD_API_KEY;
+
+        if (
+          !RD4X_API_URL ||
+          !DASHBOARD_API_KEY
+        ) {
           console.error(
             "[RD4X KEY] Servidor não configurado corretamente.",
           );
@@ -63,7 +72,8 @@ export const Route = createFileRoute("/api/auth/key/validate")({
           return Response.json(
             {
               ok: false,
-              error: "Key server is not configured.",
+              error:
+                "Key server is not configured.",
             },
             { status: 500 },
           );
@@ -78,18 +88,24 @@ export const Route = createFileRoute("/api/auth/key/validate")({
             {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${DASHBOARD_API_KEY}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
+                Authorization:
+                  `Bearer ${DASHBOARD_API_KEY}`,
+                "Content-Type":
+                  "application/json",
+                Accept:
+                  "application/json",
               },
               body: JSON.stringify({
                 key,
-                discordId: session.discordId,
+                discordId:
+                  session.discordId,
               }),
             },
           );
 
-          const data = await response.json().catch(() => null);
+          const data = await response
+            .json()
+            .catch(() => null);
 
           if (!response.ok) {
             return Response.json(
@@ -110,13 +126,6 @@ export const Route = createFileRoute("/api/auth/key/validate")({
             );
           }
 
-          /*
-           * O servidor RD4X retorna HTTP 200 tanto
-           * para Key válida quanto inválida.
-           *
-           * Portanto, "valid" precisa ser verificado
-           * explicitamente antes de criar a sessão.
-           */
           if (data?.valid !== true) {
             return Response.json(
               {
@@ -126,19 +135,16 @@ export const Route = createFileRoute("/api/auth/key/validate")({
               {
                 status: 200,
                 headers: {
-                  "Cache-Control": "no-store",
+                  "Cache-Control":
+                    "no-store",
                 },
               },
             );
           }
 
-          /*
-           * A Key foi realmente validada.
-           *
-           * Criamos somente a autorização temporária.
-           * A Key em texto puro NÃO é armazenada no cookie.
-           */
-          await createKeySession(session.discordId);
+          await createKeySession(
+            session.discordId,
+          );
 
           return Response.json(
             {
@@ -148,7 +154,8 @@ export const Route = createFileRoute("/api/auth/key/validate")({
             {
               status: 200,
               headers: {
-                "Cache-Control": "no-store",
+                "Cache-Control":
+                  "no-store",
               },
             },
           );
