@@ -1,5 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
-import { redirect } from "@tanstack/react-router";
 import {
   clearKeySession,
   getDiscordSession,
@@ -26,27 +24,3 @@ export async function getDashboardSession() {
 
   return discordSession;
 }
-
-export const requireDashboardAccess = createServerFn({
-  method: "GET",
-}).handler(async () => {
-  const session = await getDashboardSession();
-
-  if (!session) {
-    const discordSession = await getDiscordSession();
-
-    if (!discordSession) {
-      throw redirect({
-        to: "/login",
-      });
-    }
-
-    throw redirect({
-      to: "/key",
-    });
-  }
-
-  return {
-    discordId: session.discordId,
-  };
-});
