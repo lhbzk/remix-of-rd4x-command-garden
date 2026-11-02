@@ -306,3 +306,61 @@ export async function consumeOAuthState(
 
   return result === 0;
 }
+const KEY_SESSION_COOKIE = "__Host-rd4x-key";
+const KEY_SESSION_MAX_AGE = 60 * 60 * 2; // 2 horas
+
+type KeySession = {
+  discordId: string;
+  key: string;
+  issuedAt: number;
+  expiresAt: number;
+};
+
+export async function createKeySession(
+  discordId: string,
+  key: string,
+) {
+  const issuedAt = Date.now();
+
+  const session: KeySession = {
+    discordId,
+    key,
+    issuedAt,
+    expiresAt:
+      issuedAt + KEY_SESSION_MAX_AGE * 1000,
+  };
+
+  const payload = base64urlEncode(
+    JSON.stringify(session),
+  );
+
+  const signature = await sign(payload);
+
+  const cookieValue =
+    `${payload}.${signature}`;
+
+  const headers = new Headers();
+
+  headers.append(
+    "Set-Cookie",
+    [
+      `${KEY_SESSION_COOKIE}=${cookieValue}`,
+      "Path=/",
+      "HttpOnly",
+      "Secure",
+      "SameSite=Lax",
+      `Max-Age=${KEY_SESSION_MAX_AGE}`,
+    ].join("; "),
+  );
+
+  return headers;
+}
+
+export async function getKeySession(): Promise<KeySession | null> {
+  const cookieHeader =
+    (await import("next/headers").catch(() => null))
+      ? null
+      : null;
+
+  return null;
+  }
