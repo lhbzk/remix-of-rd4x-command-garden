@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { env } from "cloudflare:workers";
 import {
   createKeySession,
   getDiscordSession,
@@ -56,10 +55,10 @@ export const Route = createFileRoute(
         }
 
         const RD4X_API_URL =
-          env.RD4X_API_URL;
+          process.env.RD4X_API_URL;
 
         const DASHBOARD_API_KEY =
-          env.DASHBOARD_API_KEY;
+          process.env.DASHBOARD_API_KEY;
 
         if (
           !RD4X_API_URL ||
