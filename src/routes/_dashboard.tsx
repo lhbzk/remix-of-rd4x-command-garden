@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
-import { requireDashboardAccess } from "@/server/dashboard-auth";
+import { requireDashboardAccess } from "@/server/dashboard-auth.functions";
 
 export const Route = createFileRoute("/_dashboard")({
   beforeLoad: async () => {
