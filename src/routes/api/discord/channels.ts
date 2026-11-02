@@ -52,12 +52,12 @@ export const Route = createFileRoute("/api/discord/channels")({
             );
           }
 
-          return Response.json(data, {
-            status: 200,
-            headers: {
-              "Cache-Control": "no-store",
-            },
-          });
+          return Response.json(data?.channels ?? [], {
+  status: 200,
+  headers: {
+    "Cache-Control": "no-store",
+  },
+});
         } catch (error) {
           console.error(
             "[RD4X] Erro ao consultar canais do Discord:",
