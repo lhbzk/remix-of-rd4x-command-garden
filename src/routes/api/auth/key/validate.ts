@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getDiscordSession } from "@/server/auth";
+import {
+  createKeySession,
+  getDiscordSession,
+} from "@/server/auth";
 
 export const Route = createFileRoute("/api/auth/key/validate")({
   server: {
@@ -106,6 +109,36 @@ export const Route = createFileRoute("/api/auth/key/validate")({
               },
             );
           }
+
+          /*
+           * O servidor RD4X retorna HTTP 200 tanto
+           * para Key válida quanto inválida.
+           *
+           * Portanto, "valid" precisa ser verificado
+           * explicitamente antes de criar a sessão.
+           */
+          if (data?.valid !== true) {
+            return Response.json(
+              {
+                ok: true,
+                data,
+              },
+              {
+                status: 200,
+                headers: {
+                  "Cache-Control": "no-store",
+                },
+              },
+            );
+          }
+
+          /*
+           * A Key foi realmente validada.
+           *
+           * Criamos somente a autorização temporária.
+           * A Key em texto puro NÃO é armazenada no cookie.
+           */
+          await createKeySession(session.discordId);
 
           return Response.json(
             {
