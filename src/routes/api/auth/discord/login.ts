@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { env } from "cloudflare:workers";
 import { createOAuthState } from "@/server/auth";
 
 export const Route = createFileRoute("/api/auth/discord/login")({
@@ -7,9 +6,8 @@ export const Route = createFileRoute("/api/auth/discord/login")({
     handlers: {
       GET: async () => {
         try {
-          const clientId = env.DISCORD_CLIENT_ID;
-          const redirectUri = env.DISCORD_OAUTH_REDIRECT_URI;
-
+          const clientId = process.env.DISCORD_CLIENT_ID;
+const redirectUri = process.env.DISCORD_OAUTH_REDIRECT_URI;
           if (!clientId || !redirectUri) {
             console.error(
               "[RD4X OAuth] DISCORD_CLIENT_ID ou DISCORD_OAUTH_REDIRECT_URI não configurado.",
