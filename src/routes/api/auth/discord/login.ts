@@ -1,36 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { env } from "cloudflare:workers";
 import { createOAuthState } from "@/server/auth";
 
 export const Route = createFileRoute("/api/auth/discord/login")({
   server: {
     handlers: {
       GET: async () => {
-        const clientId = process.env.DISCORD_CLIENT_ID;
-        const redirectUri =
-          process.env.DISCORD_OAUTH_REDIRECT_URI;
-
-        if (!clientId || !redirectUri) {
-          console.error(
-            "[RD4X OAuth] DISCORD_CLIENT_ID ou DISCORD_OAUTH_REDIRECT_URI não configurado.",
-          );
-
-          return Response.json(
-            {
-              ok: false,
-              error:
-                "Discord OAuth is not configured on the server.",
-            },
-            { status: 500 },
-          );
-        }
-
         try {
-          /*
-           * Creates a cryptographically random OAuth state and
-           * stores it inside a signed, HttpOnly cookie.
-           *
-           * The state is consumed exactly once by the callback.
-           */
+          const clientId = env.DISCORD_CLIENT_ID;
+          const redirectUri = env.DISCORD_OAUTH_REDIRECT_URI;
+
+          if (!clientId || !redirectUri) {
+            console.error(
+              "[RD4X OAuth] DISCORD_CLIENT_ID ou DISCORD_OAUTH_REDIRECT_URI não configurado.",
+            );
+
+            return Response.json(
+              {
+                ok: false,
+                error:
+                  "Discord OAuth is not configured on the server.",
+              },
+              { status: 500 },
+            );
+          }
+
           const state = await createOAuthState();
 
           const params = new URLSearchParams({
