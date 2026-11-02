@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
-@custom-variant dark (&:is(.dark *));
 
 /*
  * RD4X Dashboard V10 design system.
