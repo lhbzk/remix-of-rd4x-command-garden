@@ -4,6 +4,16 @@ import {
   createDiscordSession,
 } from "@/server/auth";
 
+function redirectTo(request: Request, path: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: new URL(path, request.url).toString(),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 export const Route = createFileRoute("/api/auth/discord/callback")({
   server: {
     handlers: {
@@ -15,51 +25,37 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
         const oauthError = url.searchParams.get("error");
 
         if (oauthError) {
-          return Response.redirect(
-            new URL(
-              "/login?error=discord_denied",
-              request.url,
-            ),
-            302,
+          return redirectTo(
+            request,
+            "/login?error=discord_denied",
           );
         }
 
         if (!code || !state) {
-          return Response.redirect(
-            new URL(
-              "/login?error=invalid_oauth",
-              request.url,
-            ),
-            302,
+          return redirectTo(
+            request,
+            "/login?error=invalid_oauth",
           );
         }
 
         try {
-          const validState =
-            await consumeOAuthState(state);
+          const validState = await consumeOAuthState(state);
 
           if (!validState) {
             console.warn(
               "[RD4X AUTH] OAuth state inválido ou expirado.",
             );
 
-            return Response.redirect(
-              new URL(
-                "/login?error=invalid_state",
-                request.url,
-              ),
-              302,
+            return redirectTo(
+              request,
+              "/login?error=invalid_state",
             );
           }
 
-          const RD4X_API_URL =
-            process.env.RD4X_API_URL;
-
-          const DASHBOARD_API_KEY =
-            process.env.DASHBOARD_API_KEY;
-
+          const RD4X_API_URL = env.RD4X_API_URL;
+          const DASHBOARD_API_KEY = env.DASHBOARD_API_KEY;
           const DISCORD_OAUTH_REDIRECT_URI =
-            process.env.DISCORD_OAUTH_REDIRECT_URI;
+            env.DISCORD_OAUTH_REDIRECT_URI;
 
           if (
             !RD4X_API_URL ||
@@ -70,12 +66,9 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
               "[RD4X AUTH] Variáveis de ambiente do OAuth não configuradas.",
             );
 
-            return Response.redirect(
-              new URL(
-                "/login?error=server_config",
-                request.url,
-              ),
-              302,
+            return redirectTo(
+              request,
+              "/login?error=server_config",
             );
           }
 
@@ -115,12 +108,9 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
               response.status,
             );
 
-            return Response.redirect(
-              new URL(
-                "/login?error=discord_exchange",
-                request.url,
-              ),
-              302,
+            return redirectTo(
+              request,
+              "/login?error=discord_exchange",
             );
           }
 
@@ -135,12 +125,9 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
               "[RD4X AUTH] Resposta do servidor RD4X sem dados obrigatórios.",
             );
 
-            return Response.redirect(
-              new URL(
-                "/login?error=invalid_user",
-                request.url,
-              ),
-              302,
+            return redirectTo(
+              request,
+              "/login?error=invalid_user",
             );
           }
 
@@ -179,12 +166,9 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
             error,
           );
 
-          return Response.redirect(
-            new URL(
-              "/login?error=server_unavailable",
-              request.url,
-            ),
-            302,
+          return redirectTo(
+            request,
+            "/login?error=server_unavailable",
           );
         }
       },
