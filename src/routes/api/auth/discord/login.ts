@@ -7,7 +7,9 @@ export const Route = createFileRoute("/api/auth/discord/login")({
       GET: async () => {
         try {
           const clientId = process.env.DISCORD_CLIENT_ID;
-const redirectUri = process.env.DISCORD_OAUTH_REDIRECT_URI;
+          const redirectUri =
+            process.env.DISCORD_OAUTH_REDIRECT_URI;
+
           if (!clientId || !redirectUri) {
             console.error(
               "[RD4X OAuth] DISCORD_CLIENT_ID ou DISCORD_OAUTH_REDIRECT_URI não configurado.",
@@ -51,10 +53,6 @@ const redirectUri = process.env.DISCORD_OAUTH_REDIRECT_URI;
               ok: false,
               error:
                 "Não foi possível iniciar a autenticação do Discord.",
-              detail:
-                error instanceof Error
-                  ? error.message
-                  : String(error),
             },
             { status: 500 },
           );
