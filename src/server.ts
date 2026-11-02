@@ -3,14 +3,16 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
-import handler, {
-  createServerEntry,
-} from "@tanstack/react-start/server-entry";
+import handler from "@tanstack/react-start/server-entry";
 
-export default createServerEntry({
-  async fetch(request, opts) {
+export default {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     try {
-      const response = await handler.fetch(request, opts);
+      const response = await handler.fetch(request, env, ctx);
 
       if (response.status < 500) {
         return response;
@@ -31,29 +33,34 @@ export default createServerEntry({
 
       console.error(
         consumeLastCapturedError() ??
-          new Error(
-            `h3 swallowed SSR error: ${body}`,
-          ),
+          new Error(`h3 swallowed SSR error: ${body}`),
       );
 
       return new Response(renderErrorPage(), {
         status: 500,
         headers: {
           "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
         },
       });
     } catch (error) {
-      console.error(error);
+      console.error(
+        consumeLastCapturedError() ??
+          (error instanceof Error
+            ? error
+            : new Error(String(error))),
+      );
 
       return new Response(renderErrorPage(), {
         status: 500,
         headers: {
           "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
         },
       });
     }
   },
-});
+} satisfies ExportedHandler<Env>;
 
 function isH3SwallowedErrorBody(body: string): boolean {
   try {
