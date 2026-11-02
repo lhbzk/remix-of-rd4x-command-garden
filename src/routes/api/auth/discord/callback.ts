@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { env } from "cloudflare:workers";
 import {
   consumeOAuthState,
   createDiscordSession,
@@ -53,11 +52,14 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
             );
           }
 
-          const RD4X_API_URL = env.RD4X_API_URL;
+          const RD4X_API_URL =
+            process.env.RD4X_API_URL;
+
           const DASHBOARD_API_KEY =
-            env.DASHBOARD_API_KEY;
+            process.env.DASHBOARD_API_KEY;
+
           const DISCORD_OAUTH_REDIRECT_URI =
-            env.DISCORD_OAUTH_REDIRECT_URI;
+            process.env.DISCORD_OAUTH_REDIRECT_URI;
 
           if (
             !RD4X_API_URL ||
@@ -87,7 +89,8 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
               headers: {
                 Authorization:
                   `Bearer ${DASHBOARD_API_KEY}`,
-                "Content-Type": "application/json",
+                "Content-Type":
+                  "application/json",
                 Accept: "application/json",
               },
               body: JSON.stringify({
@@ -142,8 +145,10 @@ export const Route = createFileRoute("/api/auth/discord/callback")({
           }
 
           await createDiscordSession({
-            discordId: discordUser.discordId,
-            username: discordUser.username,
+            discordId:
+              discordUser.discordId,
+            username:
+              discordUser.username,
             globalName:
               discordUser.globalName ?? null,
             avatar:
