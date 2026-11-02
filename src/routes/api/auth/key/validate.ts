@@ -81,6 +81,33 @@ export const Route = createFileRoute(
           );
         }
 
+        const discordId =
+          String(
+            session.discordId ??
+              "",
+          ).trim();
+
+        if (!discordId) {
+          console.error(
+            "[RD4X KEY] Sessão sem Discord ID.",
+          );
+
+          return Response.json(
+            {
+              ok: false,
+              error:
+                "Discord session is missing the Discord ID.",
+            },
+            {
+              status: 401,
+              headers: {
+                "Cache-Control":
+                  "no-store",
+              },
+            },
+          );
+        }
+
         const RD4X_API_URL =
           String(
             env.RD4X_API_URL ??
@@ -118,6 +145,11 @@ export const Route = createFileRoute(
         }
 
         try {
+          console.log(
+            "[RD4X KEY] Validando Key para Discord ID:",
+            discordId,
+          );
+
           const response =
             await fetch(
               `${RD4X_API_URL.replace(
@@ -144,8 +176,7 @@ export const Route = createFileRoute(
                 body: JSON.stringify({
                   key,
 
-                  discordId:
-                    session.discordId,
+                  discordId,
                 }),
               },
             );
@@ -156,6 +187,22 @@ export const Route = createFileRoute(
               .catch(
                 () => null,
               );
+
+          console.log(
+            "[RD4X KEY] Resposta do Bot:",
+            {
+              status:
+                response.status,
+              ok:
+                response.ok,
+              valid:
+                data?.valid,
+              reason:
+                data?.reason ??
+                data?.data?.reason ??
+                null,
+            },
+          );
 
           if (!response.ok) {
             console.error(
@@ -173,6 +220,8 @@ export const Route = createFileRoute(
                 status:
                   data?.status ??
                   response.status,
+
+                data,
               },
               {
                 status:
@@ -191,15 +240,20 @@ export const Route = createFileRoute(
             );
           }
 
-          /*
-           * O BOT é a autoridade da Key.
-           *
-           * Não criamos sessão no Dashboard
-           * até o Bot responder valid:true.
-           */
           if (
             data?.valid !== true
           ) {
+            console.warn(
+              "[RD4X KEY] Bot rejeitou a Key:",
+              {
+                discordId,
+                reason:
+                  data?.reason ??
+                  data?.data?.reason ??
+                  null,
+              },
+            );
+
             return Response.json(
               {
                 ok: true,
@@ -215,19 +269,13 @@ export const Route = createFileRoute(
             );
           }
 
-          /*
-           * O Bot confirmou:
-           *
-           * - Key existe
-           * - Key está ativa
-           * - Key pertence ao Discord ID
-           * - Key não expirou
-           * - Key pode ser utilizada
-           *
-           * Agora liberamos a sessão do Dashboard.
-           */
           await createKeySession(
-            session.discordId,
+            discordId,
+          );
+
+          console.log(
+            "[RD4X KEY] Key validada com sucesso para Discord ID:",
+            discordId,
           );
 
           return Response.json(
