@@ -52,7 +52,11 @@ export const Route = createFileRoute("/api/auth/discord/login")({
             {
               ok: false,
               error:
-                "Unable to start Discord authentication.",
+                "Não foi possível iniciar a autenticação do Discord.",
+              detail:
+                error instanceof Error
+                  ? error.message
+                  : String(error),
             },
             { status: 500 },
           );
