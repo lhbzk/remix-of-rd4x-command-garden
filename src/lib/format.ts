@@ -39,23 +39,52 @@ export const initials = (name: string) =>
     .toUpperCase() || "?";
 
 /**
- * Format raw input into RD4X-XXXX-XXXX-XXXX.
+ * Normaliza uma RD4X Key para:
  *
- * The user still has to manually enter/paste the key.
- * This function only normalizes the visual format.
+ * RD4X-XXXX-XXXX-XXXX
+ *
+ * Aceita tanto a Key completa:
+ * RD4X-ABCD-EFGH-IJKL
+ *
+ * quanto somente o conteúdo:
+ * ABCD-EFGH-IJKL
+ *
+ * e remove prefixos RD4X duplicados.
  */
 export function formatKeyInput(raw: string) {
-  let s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  let s = String(raw ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
-  if (s.startsWith("RD4X")) {
+  // Remove qualquer quantidade de prefixos RD4X.
+  while (s.startsWith("RD4X")) {
     s = s.slice(4);
   }
 
+  // Uma Key RD4X possui exatamente 12 caracteres depois do prefixo.
   s = s.slice(0, 12);
 
   const groups = s.match(/.{1,4}/g) ?? [];
 
   return ["RD4X", ...groups].join("-");
+}
+
+export function normalizeProductKey(raw: string) {
+  let s = String(raw ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+  while (s.startsWith("RD4X")) {
+    s = s.slice(4);
+  }
+
+  s = s.slice(0, 12);
+
+  if (s.length !== 12) {
+    return "";
+  }
+
+  return `RD4X-${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}`;
 }
 
 export const isCompleteKey = (key: string) =>
