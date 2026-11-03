@@ -21,6 +21,7 @@ import {
   formatDate,
   formatKeyInput,
   isCompleteKey,
+  normalizeProductKey,
 } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { pageHead } from "@/lib/seo";
@@ -144,6 +145,22 @@ function KeyPage() {
       return;
     }
 
+    const normalizedKey =
+      normalizeProductKey(value);
+
+    if (!normalizedKey) {
+      setState({
+        s: "invalid",
+        reason: "key_format_invalid",
+      });
+
+      setShakeId(
+        (current) => current + 1,
+      );
+
+      return;
+    }
+
     setState({
       s: "loading",
     });
@@ -161,7 +178,7 @@ function KeyPage() {
               "application/json",
           },
           body: JSON.stringify({
-            key: value,
+            key: normalizedKey,
           }),
         },
       );
@@ -286,7 +303,7 @@ function KeyPage() {
         botResult?.data ?? {};
 
       const keyRecord: KeyRecord = {
-        key: value,
+        key: normalizedKey,
 
         plan:
           botKeyData.plan ??
@@ -540,4 +557,4 @@ function KeyPage() {
       </div>
     </AuthShell>
   );
-}
+             }
