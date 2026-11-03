@@ -6,292 +6,279 @@ import {
   getDiscordSession,
 } from "@/server/auth";
 
-function describeSafeError(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`.slice(0, 500);
-  }
-
-  return String(error).slice(0, 500);
-}
-
-export const Route = createFileRoute(
-  "/api/auth/key/validate",
-)({
+export const Route = createFileRoute("/api/auth/key/validate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let session;
-
         try {
-          session = await getDiscordSession();
-        } catch (error) {
-          console.error(
-            "[RD4X KEY] Erro ao ler sessão do Discord:",
-            error,
-          );
+          const discordSession = await getDiscordSession();
 
-          return Response.json(
-            {
-              ok: false,
-              error: "Discord session could not be read.",
-              diagnostic: "discord_session_read_failed",
-              detail: describeSafeError(error),
-            },
-            {
-              status: 500,
-              headers: {
-                "Cache-Control": "no-store",
+          if (!discordSession?.discordId) {
+            return Response.json(
+              {
+                ok: false,
+                error: "discord_session_missing",
+                message:
+                  "Sua sessão do Discord não foi encontrada. Faça login novamente.",
               },
-            },
-          );
-        }
+              { status: 401 },
+            );
+          }
 
-        if (!session) {
-          return Response.json(
-            {
-              ok: false,
-              error: "Discord session required.",
-              diagnostic: "discord_session_missing",
-            },
-            {
-              status: 401,
-              headers: {
-                "Cache-Control": "no-store",
+          let body: unknown;
+
+          try {
+            body = await request.json();
+          } catch {
+            return Response.json(
+              {
+                ok: false,
+                error: "invalid_json",
+                message: "A solicitação enviada é inválida.",
               },
-            },
-          );
-        }
+              { status: 400 },
+            );
+          }
 
-        let body: {
-          key?: unknown;
-        };
+          const rawKey =
+            typeof body === "object" &&
+            body !== null &&
+            "key" in body &&
+            typeof (body as { key?: unknown }).key === "string"
+              ? (body as { key: string }).key
+              : "";
 
-        try {
-          body = await request.json();
-        } catch {
-          return Response.json(
-            {
-              ok: false,
-              error: "Invalid request body.",
-            },
-            {
-              status: 400,
-              headers: {
-                "Cache-Control": "no-store",
+          const key = rawKey.trim().toUpperCase();
+
+          if (!key) {
+            return Response.json(
+              {
+                ok: false,
+                error: "key_missing",
+                message: "Informe uma Key RD4X.",
               },
-            },
-          );
-        }
+              { status: 400 },
+            );
+          }
 
-        const key =
-          typeof body.key === "string"
-            ? body.key.trim().toUpperCase()
-            : "";
+          const apiUrl = String(env.RD4X_API_URL ?? "")
+            .trim()
+            .replace(/\/+$/, "");
 
-        if (!key) {
-          return Response.json(
-            {
-              ok: false,
-              error: "RD4X Key is required.",
-            },
-            {
-              status: 400,
-              headers: {
-                "Cache-Control": "no-store",
+          const dashboardApiKey = String(env.DASHBOARD_API_KEY ?? "").trim();
+
+          if (!apiUrl) {
+            console.error("[RD4X] RD4X_API_URL não configurada.");
+
+            return Response.json(
+              {
+                ok: false,
+                error: "rd4x_api_url_missing",
+                message:
+                  "O servidor não está configurado corretamente: RD4X_API_URL não foi encontrada.",
               },
-            },
-          );
-        }
+              { status: 500 },
+            );
+          }
 
-        const discordId = String(
-          session.discordId ?? "",
-        ).trim();
+          if (!dashboardApiKey) {
+            console.error("[RD4X] DASHBOARD_API_KEY não configurada.");
 
-        if (!discordId) {
-          return Response.json(
-            {
-              ok: false,
-              error:
-                "Discord session is missing the Discord ID.",
-            },
-            {
-              status: 401,
-              headers: {
-                "Cache-Control": "no-store",
+            return Response.json(
+              {
+                ok: false,
+                error: "dashboard_api_key_missing",
+                message:
+                  "O servidor não está configurado corretamente: DASHBOARD_API_KEY não foi encontrada.",
               },
-            },
-          );
-        }
+              { status: 500 },
+            );
+          }
 
-        const RD4X_API_URL = String(
-          env.RD4X_API_URL ?? "",
-        ).trim();
+          const validationUrl = `${apiUrl}/api/v2/keys/validate`;
 
-        const DASHBOARD_API_KEY = String(
-          env.DASHBOARD_API_KEY ?? "",
-        ).trim();
+          console.log("[RD4X] Validando Key.", {
+            discordId: discordSession.discordId,
+            keyPrefix: key.slice(0, 5),
+            keyLength: key.length,
+            validationUrl,
+          });
 
-        if (
-          !RD4X_API_URL ||
-          !DASHBOARD_API_KEY
-        ) {
-          return Response.json(
-            {
-              ok: false,
-              error:
-                "Key server is not configured.",
-              diagnostic:
-                "key_server_config_missing",
-            },
-            {
-              status: 500,
-              headers: {
-                "Cache-Control": "no-store",
-              },
-            },
-          );
-        }
+          let botResponse: Response;
 
-        try {
-          const response = await fetch(
-            `${RD4X_API_URL.replace(
-              /\/$/,
-              "",
-            )}/api/v2/keys/validate`,
-            {
+          try {
+            botResponse = await fetch(validationUrl, {
               method: "POST",
               headers: {
-                Authorization:
-                  `Bearer ${DASHBOARD_API_KEY}`,
-                "Content-Type":
-                  "application/json",
-                Accept:
-                  "application/json",
-                "Cache-Control":
-                  "no-store",
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${dashboardApiKey}`,
               },
               body: JSON.stringify({
                 key,
-                discordId,
+                discordId: discordSession.discordId,
               }),
-            },
-          );
+            });
+          } catch (error) {
+            console.error("[RD4X] Falha ao comunicar com o bot:", error);
 
-          const data =
-            await response
-              .json()
-              .catch(() => null);
+            return Response.json(
+              {
+                ok: false,
+                error: "bot_connection_failed",
+                message:
+                  "Não foi possível comunicar com o servidor RD4X.",
+              },
+              { status: 502 },
+            );
+          }
 
-          if (!response.ok) {
+          const responseText = await botResponse.text();
+
+          let botData: Record<string, unknown> = {};
+
+          if (responseText.trim()) {
+            try {
+              const parsed = JSON.parse(responseText);
+
+              if (
+                parsed &&
+                typeof parsed === "object" &&
+                !Array.isArray(parsed)
+              ) {
+                botData = parsed as Record<string, unknown>;
+              }
+            } catch {
+              console.error(
+                "[RD4X] O bot retornou uma resposta que não é JSON.",
+                {
+                  status: botResponse.status,
+                  responsePreview: responseText.slice(0, 300),
+                },
+              );
+
+              return Response.json(
+                {
+                  ok: false,
+                  error: "bot_invalid_response",
+                  message:
+                    "O servidor RD4X retornou uma resposta inválida.",
+                  botStatus: botResponse.status,
+                },
+                { status: 502 },
+              );
+            }
+          }
+
+          console.log("[RD4X] Resposta da validação:", {
+            status: botResponse.status,
+            ok: botResponse.ok,
+            valid: botData.valid,
+            reason: botData.reason,
+            error: botData.error,
+          });
+
+          /*
+           * O bot pode retornar motivos como:
+           *
+           * key_invalida
+           * key_de_outro_usuario
+           * key_nao_resgatada
+           * key_inativa
+           *
+           * Nós devolvemos o motivo para o frontend poder mostrar
+           * exatamente o que aconteceu.
+           */
+
+          if (!botResponse.ok) {
             return Response.json(
               {
                 ok: false,
                 error:
-                  data?.error ??
-                  "Unable to validate the RD4X Key.",
-                status:
-                  data?.status ??
-                  response.status,
-                data,
+                  typeof botData.error === "string"
+                    ? botData.error
+                    : "key_validation_failed",
+                reason:
+                  typeof botData.reason === "string"
+                    ? botData.reason
+                    : undefined,
+                message:
+                  typeof botData.message === "string"
+                    ? botData.message
+                    : typeof botData.error === "string"
+                      ? botData.error
+                      : "O servidor RD4X recusou a Key.",
+                botStatus: botResponse.status,
               },
-              {
-                status:
-                  response.status >= 400 &&
-                  response.status <= 599
-                    ? response.status
-                    : 502,
-                headers: {
-                  "Cache-Control":
-                    "no-store",
-                },
-              },
+              { status: botResponse.status },
             );
           }
 
-          if (data?.valid !== true) {
+          const valid = botData.valid === true;
+
+          if (!valid) {
             return Response.json(
               {
-                ok: true,
-                data,
+                ok: false,
+                valid: false,
+                error:
+                  typeof botData.error === "string"
+                    ? botData.error
+                    : "key_invalid",
+                reason:
+                  typeof botData.reason === "string"
+                    ? botData.reason
+                    : undefined,
+                message:
+                  typeof botData.message === "string"
+                    ? botData.message
+                    : "A Key RD4X não pôde ser validada.",
               },
-              {
-                status: 200,
-                headers: {
-                  "Cache-Control":
-                    "no-store",
-                },
-              },
+              { status: 400 },
             );
           }
 
+          /*
+           * Só criamos a sessão depois que o bot confirmou
+           * que a Key é realmente válida.
+           */
           try {
-            await createKeySession(
-              discordId,
-            );
+            await createKeySession(discordSession.discordId);
           } catch (error) {
             console.error(
-              "[RD4X KEY] Key aceita, mas falhou ao criar sessão:",
+              "[RD4X] A Key foi validada, mas não foi possível criar a sessão:",
               error,
             );
 
             return Response.json(
               {
                 ok: false,
-                error:
-                  "Key was accepted, but the dashboard session could not be created.",
-                diagnostic:
-                  "key_session_create_failed",
-                detail:
-                  describeSafeError(
-                    error,
-                  ),
+                error: "key_session_create_failed",
+                message:
+                  "A Key foi validada, mas não foi possível criar sua sessão.",
               },
-              {
-                status: 500,
-                headers: {
-                  "Cache-Control":
-                    "no-store",
-                },
-              },
+              { status: 500 },
             );
           }
 
-          return Response.json(
-            {
-              ok: true,
-              data,
-            },
-            {
-              status: 200,
-              headers: {
-                "Cache-Control":
-                  "no-store",
-              },
-            },
-          );
+          return Response.json({
+            ok: true,
+            valid: true,
+            message: "Key RD4X validada com sucesso.",
+          });
         } catch (error) {
           console.error(
-            "[RD4X KEY] Erro no servidor de Keys:",
+            "[RD4X] Erro inesperado na validação da Key:",
             error,
           );
 
           return Response.json(
             {
               ok: false,
-              error:
-                "Não foi possível conectar ao servidor de Keys.",
-              diagnostic:
-                "key_server_request_failed",
-              detail:
-                describeSafeError(error),
+              error: "key_validation_unexpected_error",
+              message:
+                "Ocorreu um erro inesperado ao validar sua Key.",
             },
-            {
-              status: 502,
-              headers: {
-                "Cache-Control":
-                  "no-store",
-              },
-            },
+            { status: 500 },
           );
         }
       },
